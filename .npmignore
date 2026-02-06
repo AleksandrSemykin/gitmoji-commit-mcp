@@ -1,0 +1,29 @@
+# Source files
+src/
+tsconfig.json
+
+# Test files
+test/
+tests/
+*.test.ts
+*.spec.ts
+
+# Development files
+.vscode/
+.idea/
+
+# Git files
+.git/
+.gitignore
+.gitkeep
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

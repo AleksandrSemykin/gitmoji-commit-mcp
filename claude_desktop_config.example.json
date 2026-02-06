@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gitmoji-commit": {
+      "command": "npx",
+      "args": ["-y", "gitmoji-commit-mcp"]
+    }
+  }
+}

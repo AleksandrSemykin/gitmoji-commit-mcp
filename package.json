@@ -1,0 +1,45 @@
+{
+  "name": "gitmoji-commit-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for creating, validating, and formatting Git commits with emojis following conventional commit standards",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "gitmoji-commit-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "mcp",
+    "emoji",
+    "conventional-commits",
+    "anthropic"
+  ],
+  "author": "Aleksandr Semykin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AleksandrSemykin/gitmoji-commit-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AleksandrSemykin/gitmoji-commit-mcp/issues"
+  },
+  "homepage": "https://github.com/AleksandrSemykin/gitmoji-commit-mcp#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
