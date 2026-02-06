@@ -66,6 +66,35 @@ Or if installed globally:
 }
 ```
 
+### VSCode (Native MCP Support)
+
+VSCode has native MCP support. Edit your VSCode MCP configuration file:
+
+**Location**: `%APPDATA%\Code\User\mcp.json` (Windows) or `~/.config/Code/User/mcp.json` (macOS/Linux)
+
+```json
+{
+  "servers": {
+    "gitmoji-commit-mcp": {
+      "command": "npx",
+      "args": ["-y", "gitmoji-commit-mcp"]
+    }
+  }
+}
+```
+
+Or if installed globally (via `npm install -g` or `npm link`):
+
+```json
+{
+  "servers": {
+    "gitmoji-commit-mcp": {
+      "command": "gitmoji-commit-mcp"
+    }
+  }
+}
+```
+
 ### VSCode with Continue Extension
 
 If you're using the [Continue](https://continue.dev/) extension for VSCode, add to your Continue configuration:
@@ -84,7 +113,30 @@ If you're using the [Continue](https://continue.dev/) extension for VSCode, add 
 }
 ```
 
-### OpenAI / Other MCP Clients
+### OpenAI Codex
+
+For OpenAI Codex, edit your config file:
+
+**Location**: `~/.codex/config.toml` (macOS/Linux) or `%USERPROFILE%\.codex\config.toml` (Windows)
+
+```toml
+[mcp_servers.gitmoji-commit-mcp]
+transport = "stdio"
+command = "npx"
+args = ["-y", "gitmoji-commit-mcp"]
+description = "MCP server for creating Git commits with emojis following conventional commit standards"
+```
+
+Or if installed globally (via `npm install -g` or `npm link`):
+
+```toml
+[mcp_servers.gitmoji-commit-mcp]
+transport = "stdio"
+command = "gitmoji-commit-mcp"
+description = "MCP server for creating Git commits with emojis following conventional commit standards"
+```
+
+### Other MCP Clients
 
 For any MCP-compatible client that supports the Model Context Protocol:
 
@@ -299,12 +351,14 @@ npm run watch
 
 ### Testing Locally
 
+For local development without publishing to npm:
+
 1. Build the project:
 ```bash
 npm run build
 ```
 
-2. Link globally:
+2. Link globally (creates a symlink to your local development version):
 ```bash
 npm link
 ```
@@ -315,6 +369,8 @@ gitmoji-commit-mcp
 ```
 
 The server communicates via stdio and expects MCP protocol messages.
+
+**After running `npm link`**, you can use the simplified "installed globally" configuration in all MCP clients (see configuration examples above). The symlink ensures your local changes are reflected immediately after rebuilding - no need to republish or reinstall!
 
 ## Integration
 
