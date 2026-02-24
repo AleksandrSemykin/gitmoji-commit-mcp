@@ -1,18 +1,123 @@
 import { simpleGit, SimpleGit } from 'simple-git';
 import { CommitType, DiffStats, SuggestionResult, COMMIT_TYPES } from './types.js';
 
+export interface GitOperationOptions {
+  repoPath?: string;
+  requestMeta?: unknown;
+}
+
+interface GitContext {
+  git: SimpleGit;
+}
+
+let cachedRepoPath: string | undefined;
+
+function extractPathFromUnknown(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function extractRepoPathFromMeta(meta: unknown): string | undefined {
+  if (!meta || typeof meta !== 'object') {
+    return undefined;
+  }
+
+  const candidateKeys = [
+    'repo_path',
+    'repoPath',
+    'cwd',
+    'workingDirectory',
+    'workspace',
+    'workspaceRoot',
+    'projectRoot',
+    'root',
+  ];
+
+  const record = meta as Record<string, unknown>;
+  for (const key of candidateKeys) {
+    const direct = extractPathFromUnknown(record[key]);
+    if (direct) {
+      return direct;
+    }
+  }
+
+  for (const value of Object.values(record)) {
+    if (value && typeof value === 'object') {
+      const nested = extractRepoPathFromMeta(value);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getCandidateDirectories(options?: GitOperationOptions): string[] {
+  const env = process.env;
+  const candidates = [
+    extractPathFromUnknown(options?.repoPath),
+    cachedRepoPath,
+    extractRepoPathFromMeta(options?.requestMeta),
+    extractPathFromUnknown(env.GITMOJI_REPO_PATH),
+    extractPathFromUnknown(env.MCP_REPO_PATH),
+    extractPathFromUnknown(env.MCP_WORKSPACE_ROOT),
+    extractPathFromUnknown(env.MCP_WORKING_DIR),
+    extractPathFromUnknown(env.PROJECT_ROOT),
+    extractPathFromUnknown(env.INIT_CWD),
+    extractPathFromUnknown(env.PWD),
+    process.cwd(),
+  ].filter((value): value is string => Boolean(value));
+
+  return Array.from(new Set(candidates));
+}
+
+async function resolveGitContext(options?: GitOperationOptions): Promise<GitContext> {
+  const triedDirs: string[] = [];
+
+  for (const directory of getCandidateDirectories(options)) {
+    triedDirs.push(directory);
+
+    try {
+      const git = simpleGit({ baseDir: directory });
+      const resolvedTopLevel = (await git.revparse(['--show-toplevel'])).trim();
+      if (!resolvedTopLevel) {
+        continue;
+      }
+
+      cachedRepoPath = resolvedTopLevel;
+      return {
+        git: simpleGit({ baseDir: resolvedTopLevel }),
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  const tried = triedDirs.length > 0 ? triedDirs.join(', ') : 'none';
+  throw new Error(
+    `Unable to locate git repository context. Tried directories: ${tried}. ` +
+      `Pass "repo_path" in tool arguments or set GITMOJI_REPO_PATH.`
+  );
+}
+
 /**
- * Get a simple-git instance for the current working directory
+ * Get a simple-git instance for the resolved repository context
  */
-export function getGit(): SimpleGit {
-  return simpleGit();
+export async function getGit(options?: GitOperationOptions): Promise<SimpleGit> {
+  const context = await resolveGitContext(options);
+  return context.git;
 }
 
 /**
  * Get statistics about staged changes
  */
-export async function getStagedDiff(): Promise<DiffStats> {
-  const git = getGit();
+export async function getStagedDiff(options?: GitOperationOptions): Promise<DiffStats> {
+  const git = await getGit(options);
 
   try {
     const diffOutput = await git.raw(['diff', '--staged', '--numstat']);
@@ -60,8 +165,8 @@ export async function getStagedDiff(): Promise<DiffStats> {
 /**
  * Suggest a commit type based on staged changes
  */
-export async function suggestCommitType(): Promise<SuggestionResult> {
-  const stats = await getStagedDiff();
+export async function suggestCommitType(options?: GitOperationOptions): Promise<SuggestionResult> {
+  const stats = await getStagedDiff(options);
 
   if (stats.files.length === 0) {
     throw new Error('No staged changes found');
@@ -200,8 +305,8 @@ export async function suggestCommitType(): Promise<SuggestionResult> {
 /**
  * Create a commit with the given message
  */
-export async function createCommit(message: string): Promise<string> {
-  const git = getGit();
+export async function createCommit(message: string, options?: GitOperationOptions): Promise<string> {
+  const git = await getGit(options);
 
   try {
     const result = await git.commit(message);
@@ -214,8 +319,8 @@ export async function createCommit(message: string): Promise<string> {
 /**
  * Check if there are staged changes
  */
-export async function hasStagedChanges(): Promise<boolean> {
-  const git = getGit();
+export async function hasStagedChanges(options?: GitOperationOptions): Promise<boolean> {
+  const git = await getGit(options);
 
   try {
     const status = await git.status();

@@ -208,7 +208,8 @@ Validate a commit message against the convention.
 
 Analyze staged changes and suggest an appropriate commit type.
 
-**Parameters:** None (analyzes git staged changes)
+**Parameters:**
+- `repo_path` (optional): Path to the target git repository when MCP server runs outside project directory
 
 **Output:**
 ```
@@ -224,7 +225,8 @@ Type description: A new feature
 
 Create a git commit following the convention.
 
-**Parameters:** Same as `git_format_message`
+**Parameters:** Same as `git_format_message`, plus:
+- `repo_path` (optional): Path to the target git repository when MCP server runs outside project directory
 
 **Output:**
 ```
@@ -236,6 +238,25 @@ Message:
 ✨ feat(auth): add OAuth2 authentication
 
 Implemented OAuth2 flow with Google and GitHub providers.
+```
+
+## Repository Context Resolution
+
+Git tools (`git_suggest_type`, `git_commit`) resolve repository context in this order:
+
+1. `repo_path` argument from the tool call
+2. MCP request metadata (`_meta`, if client provides cwd/workspace info)
+3. Environment variables (`GITMOJI_REPO_PATH`, `MCP_REPO_PATH`, `MCP_WORKSPACE_ROOT`, `MCP_WORKING_DIR`, `PROJECT_ROOT`, `INIT_CWD`, `PWD`)
+4. `process.cwd()` of the MCP server
+
+If your client starts MCP servers outside your repository, pass `repo_path` explicitly:
+
+```json
+{
+  "type": "feat",
+  "title": "add OAuth login",
+  "repo_path": "C:/Users/Alex/Projects/my-repo"
+}
 ```
 
 ## Commit Types

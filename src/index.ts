@@ -10,6 +10,7 @@ import {
 import { CommitParams, CommitType, COMMIT_TYPES } from './types.js';
 import { formatCommitMessage, validateCommitMessage } from './utils.js';
 import { createCommit, hasStagedChanges, suggestCommitType } from './git.js';
+import type { GitOperationOptions } from './git.js';
 
 /**
  * MCP Server for Gitmoji Commit Convention
@@ -56,6 +57,7 @@ class GitmojiCommitServer {
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+      const requestMeta = this.getRequestMeta(request.params);
 
       try {
         switch (name) {
@@ -64,9 +66,9 @@ class GitmojiCommitServer {
           case 'git_validate_message':
             return await this.handleValidateMessage(args);
           case 'git_suggest_type':
-            return await this.handleSuggestType(args);
+            return await this.handleSuggestType(args, requestMeta);
           case 'git_commit':
-            return await this.handleCommit(args);
+            return await this.handleCommit(args, requestMeta);
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -141,7 +143,13 @@ class GitmojiCommitServer {
           'Analyze staged git changes and suggest an appropriate commit type. Returns suggested type with reasoning.',
         inputSchema: {
           type: 'object',
-          properties: {},
+          properties: {
+            repo_path: {
+              type: 'string',
+              description:
+                'Optional path to the git repository. Use when MCP server runs outside your project directory.',
+            },
+          },
         },
       },
       {
@@ -173,11 +181,48 @@ class GitmojiCommitServer {
               description: 'Whether this is a breaking change',
               default: false,
             },
+            repo_path: {
+              type: 'string',
+              description:
+                'Optional path to the git repository. Use when MCP server runs outside your project directory.',
+            },
           },
           required: ['type', 'title'],
         },
       },
     ];
+  }
+
+  private getRequestMeta(params: unknown): unknown {
+    if (!params || typeof params !== 'object') {
+      return undefined;
+    }
+
+    const record = params as Record<string, unknown>;
+    return record._meta;
+  }
+
+  private getGitOptions(args: unknown, requestMeta: unknown): GitOperationOptions {
+    return {
+      repoPath: this.extractRepoPath(args),
+      requestMeta,
+    };
+  }
+
+  private extractRepoPath(args: unknown): string | undefined {
+    if (!args || typeof args !== 'object') {
+      return undefined;
+    }
+
+    const record = args as Record<string, unknown>;
+    const raw = record.repo_path ?? record.repoPath;
+
+    if (typeof raw !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
   }
 
   private async handleFormatMessage(args: any) {
@@ -238,8 +283,8 @@ class GitmojiCommitServer {
     };
   }
 
-  private async handleSuggestType(args: any) {
-    const suggestion = await suggestCommitType();
+  private async handleSuggestType(args: any, requestMeta: unknown) {
+    const suggestion = await suggestCommitType(this.getGitOptions(args, requestMeta));
 
     const responseText = `Suggested commit type: ${suggestion.emoji} ${suggestion.type}
 
@@ -258,9 +303,11 @@ Type description: ${COMMIT_TYPES[suggestion.type].description}`;
     };
   }
 
-  private async handleCommit(args: any) {
+  private async handleCommit(args: any, requestMeta: unknown) {
+    const gitOptions = this.getGitOptions(args, requestMeta);
+
     // Check for staged changes
-    const hasChanges = await hasStagedChanges();
+    const hasChanges = await hasStagedChanges(gitOptions);
     if (!hasChanges) {
       throw new Error('No staged changes found. Please stage your changes first with git add.');
     }
@@ -283,7 +330,7 @@ Type description: ${COMMIT_TYPES[suggestion.type].description}`;
     }
 
     // Create the commit
-    const commitHash = await createCommit(message);
+    const commitHash = await createCommit(message, gitOptions);
 
     let responseText = `✅ Commit created successfully!\n\nCommit hash: ${commitHash}\n\nMessage:\n${message}`;
 
