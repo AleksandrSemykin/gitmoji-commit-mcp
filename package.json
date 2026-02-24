@@ -1,6 +1,6 @@
 {
   "name": "gitmoji-commit-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for creating, validating, and formatting Git commits with emojis following conventional commit standards",
   "main": "dist/index.js",
   "type": "module",
